@@ -19,15 +19,14 @@ void adc_1_task(void *p) {
 
     uint16_t result;
     while (1) {
-        adc_select_input(1); // Select ADC input 1 (GPIO27)
+        adc_select_input(1);
         result = adc_read();
         printf("voltage 1: %f V\n", result * conversion_factor);
 
-        // CÓDIGO AQUI
-        adc_select_input(0); // Select ADC input 0 (GPIO26)
+        //CÓDIGO AQUI
+        adc_select_input(0);
         result = adc_read();
-        printf("voltage 0: %f V\n", result * conversion_factor);
-
+        printf("voltage 2: %f V\n", result * conversion_factor);
 
         vTaskDelay(pdMS_TO_TICKS(200));
     }
@@ -38,7 +37,9 @@ int main() {
     printf("Start RTOS \n");
     adc_init();
 
-    xTaskCreate(adc_1_task, "LED_Task 1", 4095, NULL, 1, NULL);
+    xTaskCreate(adc_1_task, "ADC_Task", 4095, NULL, 1, NULL);
+    
+
     vTaskStartScheduler();
 
     while (true) {
