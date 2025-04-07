@@ -1,39 +1,52 @@
 #include <FreeRTOS.h>
 #include <task.h>
-#include <semphr.h>
 #include <queue.h>
+#include <semphr.h>
 
 #include "pico/stdlib.h"
 #include <stdio.h>
 
 #include "data.h"
-QueueHandle_t xQueueData;
 
-// não mexer! Alimenta a fila com os dados do sinal
-void data_task(void *p) {
-    vTaskDelay(pdMS_TO_TICKS(400));
+#define QUEUE_LENGTH 64
+#define QUEUE_ITEM_SIZE sizeof(int)
+#define FILTER_SIZE 5
 
-    int data_len = sizeof(sine_wave_four_cycles) / sizeof(sine_wave_four_cycles[0]);
-    for (int i = 0; i < data_len; i++) {
-        xQueueSend(xQueueData, &sine_wave_four_cycles[i], 1000000);
+QueueHandle_t queueData;
+
+void taskFeedData(void *params) {
+    vTaskDelay(pdMS_TO_TICKS(400)); 
+
+    int signalLength = sizeof(sine_wave_four_cycles) / sizeof(sine_wave_four_cycles[0]);
+
+    for (int i = 0; i < signalLength; i++) {
+        xQueueSend(queueData, &sine_wave_four_cycles[i], portMAX_DELAY);
     }
-
     while (true) {
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
 }
 
-void process_task(void *p) {
-    int data = 0;
+void taskProcessData(void *params) {
+    int buffer[FILTER_SIZE] = {0};
+    int newData = 0;
 
     while (true) {
-        if (xQueueReceive(xQueueData, &data, 100)) {
-            // implementar filtro aqui!
+        if (xQueueReceive(queueData, &newData, pdMS_TO_TICKS(100))) {
 
+            for (int i = 0; i < FILTER_SIZE - 1; i++) {
+                buffer[i] = buffer[i + 1];
+            }
+            buffer[FILTER_SIZE - 1] = newData;
 
+            int sum = 0;
+            for (int i = 0; i < FILTER_SIZE; i++) {
+                sum += buffer[i];
+            }
+            float average = sum / (float)FILTER_SIZE;
 
+            printf("Média móvel: %f\n", average);
 
-            // deixar esse delay!
             vTaskDelay(pdMS_TO_TICKS(50));
         }
     }
@@ -42,13 +55,13 @@ void process_task(void *p) {
 int main() {
     stdio_init_all();
 
-    xQueueData = xQueueCreate(64, sizeof(int));
+    queueData = xQueueCreate(QUEUE_LENGTH, QUEUE_ITEM_SIZE);
 
-    xTaskCreate(data_task, "Data task ", 4096, NULL, 1, NULL);
-    xTaskCreate(process_task, "Process task", 4096, NULL, 1, NULL);
+    xTaskCreate(taskFeedData, "FeedData", 4096, NULL, 1, NULL);
+    xTaskCreate(taskProcessData, "ProcessData", 4096, NULL, 1, NULL);
 
     vTaskStartScheduler();
 
-    while (true)
-        ;
+    while (true) {
+    }
 }
